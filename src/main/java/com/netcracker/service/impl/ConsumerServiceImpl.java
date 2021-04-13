@@ -12,14 +12,14 @@ import io.quarkus.runtime.StartupEvent;
 import lombok.RequiredArgsConstructor;
 import org.jboss.logging.Logger;
 
-import javax.annotation.PostConstruct;
 import javax.enterprise.context.ApplicationScoped;
 import javax.enterprise.event.Observes;
 import javax.inject.Inject;
-import javax.inject.Singleton;
 import java.io.IOException;
 import java.nio.charset.StandardCharsets;
+import java.util.Map;
 import java.util.concurrent.TimeoutException;
+import java.util.stream.Collectors;
 
 @ApplicationScoped
 @RequiredArgsConstructor(onConstructor = @__(@Inject))
@@ -36,6 +36,11 @@ public class ConsumerServiceImpl implements ConsumerService {
             String strMessage = new String(delivery.getBody(), StandardCharsets.UTF_8);
             Message message = mapper.readValue(strMessage, Message.class);
             storageService.store(message);
+            Map<String, Object> headers = delivery.getProperties().getHeaders();
+            String strHeaders = headers.keySet().stream()
+                    .map(key -> key + ": " + headers.get(key))
+                    .collect(Collectors.joining(", ", "{", "}"));
+            System.out.println("Headers " + strHeaders);
         };
 
         try {
@@ -43,6 +48,7 @@ public class ConsumerServiceImpl implements ConsumerService {
             Channel channel = connection.createChannel();
             channel.queueDeclare(QUEUE_NAME, true, false, false, null);
             channel.basicConsume(QUEUE_NAME, true, callback, tag -> {
+                System.out.println("Tag " + tag);
             });
         } catch (IOException e) {
             logger.errorf("IOException occurred. Exception ", e);
